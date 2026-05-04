@@ -1,0 +1,98 @@
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+#include <DHT.h>
+
+// LCD setup (I2C address 0x27, 16x2 display)
+LiquidCrystal_I2C lcd(0x27, 16, 2);
+
+// DHT11 setup
+#define DHTPIN 7
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
+
+// Ultrasonic pins
+#define TRIG 9
+#define ECHO 10
+
+// Function to add padding for scrolling
+String padText(String text) {
+  return "                " + text + "                ";
+}
+
+// Function to calculate distance
+float getDistance() {
+  digitalWrite(TRIG, LOW);
+  delayMicroseconds(2);
+
+  digitalWrite(TRIG, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG, LOW);
+
+  long duration = pulseIn(ECHO, HIGH);
+  float distance = duration * 0.034 / 2;
+  return distance;
+}
+
+void setup() {
+  lcd.init();
+  lcd.backlight();
+
+  dht.begin();
+
+  pinMode(TRIG, OUTPUT);
+  pinMode(ECHO, INPUT);
+
+  lcd.setCursor(0, 0);
+  lcd.print("System Starting");
+  lcd.setCursor(0, 1);
+  lcd.print("Please Wait...");
+  delay(2000);
+}
+
+void loop() {
+  float temp = dht.readTemperature();
+  float distance = getDistance();
+
+  String row1, row2;
+
+  // Temperature logic
+  if (!isnan(temp)) {
+    row1 = "Temp: " + String(temp) + "C";
+    if (temp >= 34) {
+      row1 += " HIGH!";
+    }
+  } else {
+    row1 = "Temp Error";
+  }
+
+  // Distance logic
+  if (distance < 10) {
+    row2 = "Object is near. Dist: " + String(distance) + "cm";
+  } 
+  else if (distance > 25) {
+    row2 = "Area Clear! Object Far. Dist: " + String(distance) + "cm";
+  } 
+  else {
+    row2 = "Dist: " + String(distance) + "cm MID";
+  }
+
+  // Add padding for scrolling
+  row1 = padText(row1);
+  row2 = padText(row2);
+
+  int maxLen = max(row1.length(), row2.length());
+
+  // Scrolling display
+  for (int i = 0; i < maxLen - 15; i++) {
+    lcd.setCursor(0, 0);
+    lcd.print(row1.substring(i, i + 16));
+
+    lcd.setCursor(0, 1);
+    lcd.print(row2.substring(i, i + 16));
+
+    delay(250);
+  }
+
+  // Important delay for DHT11 stability
+  delay(2000);
+}
